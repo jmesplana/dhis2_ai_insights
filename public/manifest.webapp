@@ -1,0 +1,35 @@
+{
+  "appType": "APP",
+  "short_name": "ai-insights",
+  "name": "DHIS2 AI Insights",
+  "description": "DHIS2 AI Insights transforms how healthcare professionals interact with their data by leveraging advanced artificial intelligence to analyze health metrics, identify trends, detect anomalies, and generate actionable recommendations.\n\nKEY FEATURES:\n• Natural Language Queries: Ask questions about your data in plain language\n• Intelligent Pattern Recognition: Automatically identify trends and outliers\n• Interactive Visualizations: View your data through customizable charts and tables\n• Report Generation: Create email-ready summaries for stakeholders\n• Real-time Analysis: Connect directly to your DHIS2 instance for up-to-date insights\n\nUSE CASES:\n• Healthcare Program Managers: Track vaccination coverage trends, identify underperforming facilities\n• Public Health Officials: Analyze disease prevalence, summarize key indicators\n• Data Analysts: Find anomalies in reporting data, evaluate intervention effectiveness\n• Decision Makers: Generate performance reports, identify programs needing attention\n\nGetting started is simple - just select your data elements, organization unit, and time period, then ask the AI questions about your data. The conversation-based interface makes it easy to explore your data through follow-up questions and suggested prompts.\n\nDHIS2 AI Insights eliminates the need for complex data analysis, allowing health professionals to focus on making informed decisions that improve health outcomes.",
+  "version": "1.0.9",
+  "launch_path": "index.html",
+  "default_locale": "en",
+  "activities": {
+    "dhis": {
+      "href": "*"
+    }
+  },
+  "icons": {
+    "16": "favicon-16x16.png",
+    "48": "dhis2-app-icon.png", 
+    "128": "apple-touch-icon.png"
+  },
+  "developer": {
+    "name": "John Mark Esplana",
+    "email": "digital.health@ifrc.org"
+  },
+  "manifest_generated_at": "Wed Mar 16 2025",
+  "display": "standalone",
+  "theme_color": "#ffffff",
+  "background_color": "#ffffff",
+  "scope": ".",
+  "authorities": [
+    "PUBLIC_ADD",
+    "PUBLIC_ACCESS",
+    "DATA_READ",
+    "DATA_WRITE",
+    "METADATA_READ"
+  ]
+}

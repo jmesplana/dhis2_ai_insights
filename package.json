@@ -1,0 +1,28 @@
+{
+  "name": "dhis2-ai-insights-new",
+  "version": "1.0.9",
+  "description": "",
+  "license": "BSD-3-Clause",
+  "private": true,
+  "scripts": {
+    "build": "d2-app-scripts build",
+    "start": "d2-app-scripts start",
+    "test": "d2-app-scripts test",
+    "deploy": "d2-app-scripts deploy"
+  },
+  "devDependencies": {
+    "@dhis2/cli-app-scripts": "^12.4.0"
+  },
+  "dependencies": {
+    "@dhis2/app-runtime": "^3.14.0",
+    "@dhis2/ui-icons": "^10.4.0",
+    "axios": "^1.8.3",
+    "chart.js": "^3.9.1",
+    "docx": "^9.3.0",
+    "file-saver": "^2.0.5",
+    "react-chartjs-2": "^4.3.1",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-raw": "^7.0.0"
+  }
+}
