@@ -1,4 +1,39 @@
-# DHIS2 AI Insights v1.1.0 Release Notes
+# AI Insights for DHIS2 v1.2.4 Release Notes
+
+We're excited to announce the release of AI Insights v1.2.4, a major stability update that fixes critical bugs and improves the user experience with better organization unit name resolution and proper icon handling.
+
+## 🚀 What's New in v1.2.4
+
+### 🐛 Critical Bug Fixes
+- **Fixed Icon Import Errors**: Resolved `IconChart24`, `IconDocument24`, and `IconLightBulb24` import errors that caused app crashes
+- **Organization Unit Name Resolution**: Fixed issue where Ollama responses showed organization unit UIDs instead of proper names
+- **Build Stability**: Eliminated all icon-related build failures for reliable deployment
+
+### ✨ User Experience Improvements
+- **Proper Organization Names**: Multi-organization unit analysis now displays facility names instead of technical UIDs (e.g., "District Hospital" instead of "fdc6uOvgoji")
+- **Better Icon Design**: Replaced problematic icons with valid DHIS2 UI icons and emoji alternatives
+- **Enhanced Metadata**: Added proper author attribution and GitHub repository links
+
+### 🔧 Technical Improvements
+- **Enhanced Data Mapping**: Improved ID-to-name mapping for organization units, data elements, and periods in AI context
+- **Better Error Handling**: More robust icon import validation and fallback mechanisms
+- **Cleaner Codebase**: Removed unused imports and optimized component structure
+
+### 📝 Updated Branding & Documentation
+- **App Rebranding**: Updated from "DHIS2 AI Insights" to "AI Insights for DHIS2" for better clarity
+- **Comprehensive README**: Updated documentation to reflect all current features and capabilities
+- **Author Attribution**: Added proper developer credits and project links
+
+## 🔄 Upgrade from Previous Versions
+
+This release maintains full compatibility with existing configurations and data. Users upgrading from v1.1.x will experience:
+- Immediate resolution of any icon-related crashes
+- Improved readability in multi-organization unit reports
+- No configuration changes required
+
+---
+
+# Previous Release: DHIS2 AI Insights v1.1.0 Release Notes
 
 We're excited to announce the release of DHIS2 AI Insights v1.1.0, which brings major UI/UX improvements and enhanced user experience for analyzing DHIS2 data with AI.
 
