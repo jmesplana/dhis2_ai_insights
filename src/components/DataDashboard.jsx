@@ -217,48 +217,84 @@ export const DataDashboard = ({
       return periodId
     }
     
-    // Get unique data element IDs from rows
-    const uniqueDataElements = Array.from(new Set(rows.map(row => row[deIndex])))
+    // Check if we're in multi-org unit mode
+    const isMultiOrgUnit = data.multiOrgUnitMode && ouIndex !== -1
     
-    // Process data for each data element
-    const datasets = uniqueDataElements.map(deId => {
-      // Get data element name from metadata or selected elements
-      let deDisplayName = deId
-      
-      // Try to get from metadata first
-      if (metaData.items && metaData.items[deId]) {
-        deDisplayName = metaData.items[deId].name
-      } 
-      // Otherwise try to find in selected elements
-      else {
-        const dataElement = Array.isArray(selectedDataElements) && selectedDataElements.length > 0 && 
-                            typeof selectedDataElements[0] === 'object'
-          ? selectedDataElements.find(de => de.id === deId || de.value === deId)
-          : null
-          
-        if (dataElement) {
-          deDisplayName = dataElement.displayName || dataElement.label || deId
+    // Get unique data element IDs and org unit IDs from rows
+    const uniqueDataElements = Array.from(new Set(rows.map(row => row[deIndex])))
+    const uniqueOrgUnits = isMultiOrgUnit ? Array.from(new Set(rows.map(row => row[ouIndex]))) : [selectedOrgUnit?.id]
+    
+    let datasets = []
+    
+    if (isMultiOrgUnit && uniqueOrgUnits.length > 1) {
+      // Multi-org unit mode: create datasets grouped by org unit
+      datasets = uniqueOrgUnits.map(ouId => {
+        // Get org unit name
+        let orgUnitName = ouId
+        if (metaData.items && metaData.items[ouId]) {
+          orgUnitName = metaData.items[ouId].name
         }
-      }
-      
-      // Create dataset for this data element
-      const deRows = rows.filter(row => row[deIndex] === deId)
-      
-      // Map values to periods, filling with zeroes for missing periods
-      const values = uniquePeriods.map(periodId => {
-        const periodRow = deRows.find(row => row[periodIndex] === periodId)
+        
+        // For multi-org unit mode, we'll aggregate all data elements for each org unit
+        // or create separate datasets for each combination
+        const orgUnitRows = rows.filter(row => row[ouIndex] === ouId)
+        
+        // Aggregate values across all data elements for this org unit by period
+        const values = uniquePeriods.map(periodId => {
+          const periodRows = orgUnitRows.filter(row => row[periodIndex] === periodId)
+          return periodRows.reduce((sum, row) => sum + (parseFloat(row[valueIndex]) || 0), 0)
+        })
+        
+        return {
+          label: orgUnitName,
+          data: values,
+          backgroundColor: getRandomColor(0.7),
+          borderColor: getRandomColor(1),
+          borderWidth: 1,
+          fill: false,
+        }
+      })
+    } else {
+      // Single org unit mode: create datasets by data element (original behavior)
+      datasets = uniqueDataElements.map(deId => {
+        // Get data element name from metadata or selected elements
+        let deDisplayName = deId
+        
+        // Try to get from metadata first
+        if (metaData.items && metaData.items[deId]) {
+          deDisplayName = metaData.items[deId].name
+        } 
+        // Otherwise try to find in selected elements
+        else {
+          const dataElement = Array.isArray(selectedDataElements) && selectedDataElements.length > 0 && 
+                              typeof selectedDataElements[0] === 'object'
+            ? selectedDataElements.find(de => de.id === deId || de.value === deId)
+            : null
+            
+          if (dataElement) {
+            deDisplayName = dataElement.displayName || dataElement.label || deId
+          }
+        }
+        
+        // Create dataset for this data element
+        const deRows = rows.filter(row => row[deIndex] === deId)
+        
+        // Map values to periods, filling with zeroes for missing periods
+        const values = uniquePeriods.map(periodId => {
+          const periodRow = deRows.find(row => row[periodIndex] === periodId)
         return periodRow ? parseFloat(periodRow[valueIndex]) || 0 : 0
       })
       
-      return {
-        label: deDisplayName,
-        data: values,
-        backgroundColor: getRandomColor(0.7),
-        borderColor: getRandomColor(1),
-        borderWidth: 1,
-        fill: false,
-      }
-    })
+        return {
+          label: deDisplayName,
+          data: values,
+          backgroundColor: getRandomColor(0.7),
+          borderColor: getRandomColor(1),
+          borderWidth: 1,
+          fill: false,
+        }
+      })
+    }
     
     const chartConfig = {
       labels,
@@ -268,7 +304,21 @@ export const DataDashboard = ({
     setChartData(chartConfig)
     
     // Process data for table view with proper metadata
-    const tableRows = rows.map(row => {
+    // Sort table data to prioritize org unit when in multi-org unit mode
+    const sortedRows = isMultiOrgUnit 
+      ? [...rows].sort((a, b) => {
+          // First sort by org unit, then by data element, then by period
+          const ouCompare = a[ouIndex].localeCompare(b[ouIndex])
+          if (ouCompare !== 0) return ouCompare
+          
+          const deCompare = a[deIndex].localeCompare(b[deIndex])
+          if (deCompare !== 0) return deCompare
+          
+          return a[periodIndex].localeCompare(b[periodIndex])
+        })
+      : rows
+    
+    const tableRows = sortedRows.map(row => {
       // Get display names from metadata
       const periodId = row[periodIndex]
       const deId = row[deIndex]
@@ -605,12 +655,56 @@ export const DataDashboard = ({
     borderBottom: '1px solid #ddd',
   }
 
+  // Helper function to format selected data elements for display
+  const formatDataElementsDisplay = (elements) => {
+    if (!elements || elements.length === 0) return 'None selected'
+    
+    if (elements.length <= 3) {
+      return elements.map(el => el.displayName || el.id || el).join(', ')
+    } else {
+      const first = elements.slice(0, 2).map(el => el.displayName || el.id || el).join(', ')
+      return `${first} and ${elements.length - 2} more`
+    }
+  }
+
+  // Helper function to format period display
+  const formatPeriodDisplay = (period) => {
+    const periodMap = {
+      'THIS_MONTH': 'This Month',
+      'LAST_MONTH': 'Last Month', 
+      'THIS_QUARTER': 'This Quarter',
+      'LAST_QUARTER': 'Last Quarter',
+      'THIS_YEAR': 'This Year',
+      'LAST_YEAR': 'Last Year',
+      'LAST_12_MONTHS': 'Last 12 Months'
+    }
+    return periodMap[period] || period
+  }
+
   return (
     <div className="visualization-container">
+      {/* Current Selection Summary */}
+      <Card style={{ marginBottom: '16px' }}>
+        <Box padding="12px 16px">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px', fontSize: '14px' }}>
+            <div>
+              <strong>Data:</strong> <span style={{ color: '#666' }}>{formatDataElementsDisplay(selectedDataElements)}</span>
+            </div>
+            <div>
+              <strong>Period:</strong> <span style={{ color: '#666' }}>{formatPeriodDisplay(selectedPeriod)}</span>
+            </div>
+            <div>
+              <strong>Org Unit:</strong> <span style={{ color: '#666' }}>
+                {selectedOrgUnit ? selectedOrgUnit.displayName || selectedOrgUnit.name || selectedOrgUnit.id : 'None selected'}
+                {selectedOrgUnit && selectedOrgUnit.includeChildOrgUnits && <span style={{ color: '#1976d2' }}> (+ child units)</span>}
+              </span>
+            </div>
+          </div>
+        </Box>
+      </Card>
+      
       <Card>
         <Box padding="16px">
-          <h3>Data Dashboard</h3>
-          
           {selectedDataElements.length === 0 || !selectedOrgUnit ? (
             <NoticeBox title="No data selected">
               Please select data elements and an organization unit to view the dashboard
@@ -642,6 +736,22 @@ export const DataDashboard = ({
                   </Tab>
                 </TabBar>
               </Box>
+              
+              {/* Multi-org unit mode indicator */}
+              {chartData && chartData.datasets && chartData.datasets.length > 0 && 
+               selectedOrgUnit && selectedOrgUnit.includeChildOrgUnits && (
+                <Box 
+                  margin="0 0 16px 0" 
+                  padding="12px" 
+                  background="#e3f2fd" 
+                  borderRadius="4px"
+                >
+                  <p style={{ margin: 0, fontSize: '14px', color: '#1976d2' }}>
+                    <strong>📊 Multi-Organization Unit Analysis:</strong> Data is broken down by individual child organization units for comparative analysis.
+                    {chartData.datasets.length > 1 && ` Showing ${chartData.datasets.length} organization units.`}
+                  </p>
+                </Box>
+              )}
               
               {activeTab === 'chart' ? (
                 <>

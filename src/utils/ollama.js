@@ -8,9 +8,10 @@ import { ollamaGetRequest, ollamaPostRequest } from './ollamaProxy'
  * @param {Object} data - The DHIS2 data to analyze
  * @param {Object} context - Additional context information
  * @param {Array} conversation - The conversation history
+ * @param {Function} onStreamChunk - Optional callback for streaming response chunks
  * @returns {Object} The AI response
  */
-export const sendToOllama = async (query, data, context, conversation = []) => {
+export const sendToOllama = async (query, data, context, conversation = [], onStreamChunk = null) => {
   // Get Ollama settings
   const settings = getSettings() || {}
   const ollamaServerUrl = settings.ollamaServerUrl || 'http://localhost:11434'
@@ -219,32 +220,40 @@ const createSystemPrompt = (data, context) => {
       // Format as a table
       dataString = 'Data Sample:\n'
 
-      // Map the data element IDs to names if available
-      const mapDataElementName = (id) => {
+      // Map IDs to names if available
+      const mapIdToName = (id) => {
         if (data.metaData && data.metaData.items && data.metaData.items[id]) {
           return data.metaData.items[id].name || id;
         }
         return id;
       };
 
-      // Get the dx index (data element) from the headers
+      // Get the indices from the headers
       const dxIndex = headers.findIndex(h => h.name === 'dx');
+      const ouIndex = headers.findIndex(h => h.name === 'ou');
+      const peIndex = headers.findIndex(h => h.name === 'pe');
 
       // Create a header row with readable names
       const headerRow = headers.map((h, i) => {
         if (i === dxIndex && dxIndex !== -1) {
           return 'Data Element';
+        } else if (i === ouIndex && ouIndex !== -1) {
+          return 'Organization Unit';
+        } else if (i === peIndex && peIndex !== -1) {
+          return 'Period';
         }
         return h.column;
       }).join(',');
 
       dataString += headerRow + '\n';
 
-      // Format each row with readable data element names
+      // Format each row with readable names
       sample.forEach(row => {
         const formattedRow = row.map((cell, i) => {
-          if (i === dxIndex && dxIndex !== -1) {
-            return mapDataElementName(cell);
+          if ((i === dxIndex && dxIndex !== -1) || 
+              (i === ouIndex && ouIndex !== -1) || 
+              (i === peIndex && peIndex !== -1)) {
+            return mapIdToName(cell);
           }
           return cell;
         }).join(',');

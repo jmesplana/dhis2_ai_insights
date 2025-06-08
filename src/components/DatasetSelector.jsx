@@ -14,8 +14,10 @@ import {
   IconChevronUp24,
   Divider,
   NoticeBox,
-  Transfer
+  Transfer,
+  Checkbox
 } from '@dhis2/ui'
+import { IconCheckmark24 } from '@dhis2/ui-icons'
 
 // Query to fetch data elements
 const dataElementsQuery = {
@@ -191,6 +193,9 @@ export const DatasetSelector = ({
   const [selectedDataSet, setSelectedDataSet] = useState(null)
   const [selectedIndicatorGroup, setSelectedIndicatorGroup] = useState(null)
   const [selectedProgramForIndicators, setSelectedProgramForIndicators] = useState(null)
+  
+  // Multi-org unit breakdown option
+  const [includeChildOrgUnits, setIncludeChildOrgUnits] = useState(false)
 
   // Use static data queries for better performance
   const { loading: dataElementsLoading, error: dataElementsError, data: dataElementsData } = 
@@ -326,7 +331,13 @@ export const DatasetSelector = ({
       
       // Update selected org unit
       setSelectedOrgUnit(specialOrgUnit);
-      onOrgUnitSelected(specialOrgUnit);
+      
+      // Pass special org unit with multi-org unit setting
+      const specialOrgUnitWithSettings = {
+        ...specialOrgUnit,
+        includeChildOrgUnits: includeChildOrgUnits
+      };
+      onOrgUnitSelected(specialOrgUnitWithSettings);
       
       // Special org units always have data available
       setAvailableDataTypes({
@@ -412,7 +423,13 @@ export const DatasetSelector = ({
       
       // Update selected org unit
       setSelectedOrgUnit(fullOrgUnit);
-      onOrgUnitSelected(fullOrgUnit);
+      
+      // Pass org unit with multi-org unit setting
+      const orgUnitWithSettings = {
+        ...fullOrgUnit,
+        includeChildOrgUnits: includeChildOrgUnits
+      };
+      onOrgUnitSelected(orgUnitWithSettings);
       
       // Check data availability for the selected org unit
       if (fullOrgUnit && fullOrgUnit.id) {
@@ -1017,7 +1034,6 @@ export const DatasetSelector = ({
     <Card>
       <Box padding="24px" marginBottom="16px">
         <div className="header" onClick={() => setExpanded(!expanded)}>
-          <h3 style={{ margin: 0 }}>Data Selection</h3>
           <Button small icon={expanded ? <IconChevronUp24 /> : <IconChevronDown24 />}>
             {expanded ? 'Collapse' : 'Expand'}
           </Button>
@@ -1052,7 +1068,7 @@ export const DatasetSelector = ({
                   >
                     <details open={selectionStep === 1}>
                       <summary style={{ fontWeight: 'bold', cursor: 'pointer', marginBottom: '8px' }}>
-                        Step 1: Select Organization Unit {selectedOrgUnit && <span style={{ color: '#4caf50' }}>✓</span>}
+                        Step 1: Select Organization Unit {selectedOrgUnit && <IconCheckmark24 style={{ color: '#4caf50' }} />}
                       </summary>
                       
                       <p style={{ fontSize: '14px', marginBottom: '8px' }}>Select an organization unit</p>
@@ -1081,6 +1097,20 @@ export const DatasetSelector = ({
                         </Button>
                       </div>
                       
+                      {/* Multi-org unit breakdown option */}
+                      <div style={{ marginBottom: '8px', padding: '8px', background: '#f0f8ff', borderRadius: '4px' }}>
+                        <Checkbox
+                          checked={includeChildOrgUnits}
+                          label="Include child organization units breakdown"
+                          onChange={({ checked }) => setIncludeChildOrgUnits(checked)}
+                        />
+                        {includeChildOrgUnits && (
+                          <p style={{ fontSize: '12px', margin: '4px 0 0 24px', color: '#666' }}>
+                            Data will be analyzed separately for each child org unit, enabling comparative analysis
+                          </p>
+                        )}
+                      </div>
+                      
                       <div style={{ 
                         border: '1px solid #e0e0e0', 
                         height: '250px', 
@@ -1105,7 +1135,7 @@ export const DatasetSelector = ({
                       
                       {selectedOrgUnit && (
                         <Box background="#f0f8ff" padding="8px" margin="8px 0 0 0" borderRadius="4px">
-                          <strong>Selected:</strong> <span style={{ color: '#4caf50', marginRight: '4px' }}>✓</span>{selectedOrgUnit.displayName}
+                          <strong>Selected:</strong> <IconCheckmark24 style={{ color: '#4caf50', marginRight: '4px' }} />{selectedOrgUnit.displayName}
                         </Box>
                       )}
                     </details>

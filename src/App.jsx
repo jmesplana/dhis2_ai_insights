@@ -11,6 +11,7 @@ import {
   TabBar,
   Divider
 } from '@dhis2/ui'
+import { IconVisualizationColumn24 } from '@dhis2/ui-icons'
 
 import './App.css'
 import { AIQuerySelection } from './components/AIQuerySelection.jsx'
@@ -36,6 +37,9 @@ const App = () => {
   const [selectedOrgUnit, setSelectedOrgUnit] = useState(null)
   const [selectedDataType, setSelectedDataType] = useState('aggregate') // Default data type
   const [apiKeySet, setApiKeySet] = useState(false)
+  // Persistent chat state
+  const [conversation, setConversation] = useState([])
+  const [dataSnapshot, setDataSnapshot] = useState(null)
 
   useEffect(() => {
     // Check if API configuration is set
@@ -46,6 +50,12 @@ const App = () => {
 
     setApiKeySet(isConfigured)
   }, [showSettings])
+
+  // Reset conversation when data selection changes
+  useEffect(() => {
+    setConversation([])
+    setDataSnapshot(null)
+  }, [selectedDataElements, selectedPeriod, selectedOrgUnit])
 
   if (loading) {
     return (
@@ -71,7 +81,6 @@ const App = () => {
       <CenteredContent>
         <Card>
           <div className="welcome-card">
-            <h2>Welcome to DHIS2 AI Insights</h2>
             <p>
               This application uses artificial intelligence to help you analyze your DHIS2 data.
               To get started, you need to configure your AI provider settings.
@@ -92,7 +101,6 @@ const App = () => {
   return (
     <div className="container">
       <header className="header">
-        <h1>DHIS2 AI Insights</h1>
         <Button 
           small
           onClick={() => setShowSettings(!showSettings)}
@@ -122,7 +130,14 @@ const App = () => {
               onClick={() => setActiveTab('insights')}
               disabled={!selectedDataElements.length || !selectedOrgUnit}
             >
-              AI Insights
+              AI Insights {conversation.length > 0 && <span style={{
+                backgroundColor: '#1976d2',
+                color: 'white',
+                borderRadius: '10px',
+                padding: '2px 6px',
+                fontSize: '11px',
+                marginLeft: '4px'
+              }}>{conversation.length}</span>}
             </Tab>
             <Tab 
               selected={activeTab === 'dashboard'} 
@@ -173,7 +188,7 @@ const App = () => {
                     <Button 
                       primary 
                       onClick={() => setActiveTab('insights')}
-                      icon={<span role="img" aria-label="analyze">✨</span>}
+                      icon={<IconVisualizationColumn24 />}
                       large
                     >
                       Analyze Data with AI
@@ -189,6 +204,10 @@ const App = () => {
                 selectedOrgUnit={selectedOrgUnit}
                 selectedDataType={selectedDataType}
                 user={data.me}
+                conversation={conversation}
+                setConversation={setConversation}
+                dataSnapshot={dataSnapshot}
+                setDataSnapshot={setDataSnapshot}
               />
             ) : (
               <DataDashboard 

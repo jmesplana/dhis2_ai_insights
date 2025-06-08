@@ -1,19 +1,18 @@
 const config = {
     type: 'app',
-    title: 'DHIS2 AI Insights',
-    name: 'DHIS2 AI Insights',
-    description: 'DHIS2 AI Insights is an advanced analytics tool that uses artificial intelligence to transform your health data into actionable insights. The application features a natural language interface allowing users to ask questions about their data in plain language, identify trends over time, detect anomalies, generate visualizations, and create shareable reports. With a WhatsApp-style chat interface, users can have flowing conversations with the AI about their data, asking follow-up questions and generating email-ready reports. The tool connects directly to your DHIS2 instance, allowing real-time analysis of aggregate data, event data, and tracker data across any time period and organization unit. Designed for healthcare professionals, program managers, data analysts, and decision-makers who need rapid, data-driven insights without specialized data science skills or complex statistical analysis.',
+    title: 'AI Insights',
+    name: 'AI Insights',
+    description: 'AI Insights allows users to analyze DHIS2 health data using natural language queries. Healthcare professionals, data analysts, and decision-makers can ask questions in plain language to identify trends, compare performance across organization units, and generate actionable insights from their data. The app works by connecting to external AI services (OpenAI or locally-hosted Ollama) to interpret questions and analyze aggregate, event, and tracker data. AI Insights is generic and works with any DHIS2 instance and metadata structure. The app requires an internet connection to communicate with AI services and may need API keys for OpenAI or local Ollama setup. All analysis happens through conversational interfaces that produce visualizations and downloadable reports.',
+    author: 'John Mark Esplana',
+    developer: {
+        name: 'John Mark Esplana',
+        url: 'https://github.com/jmesplana/dhis2_ai_insights'
+    },
     entryPoints: {
         app: './src/App.jsx',
     },
     minDhisVersion: '2.35',
-    authorities: [
-        'PUBLIC_ADD',
-        'PUBLIC_ACCESS',
-        'DATA_READ',
-        'DATA_WRITE',
-        'METADATA_READ'
-    ]
+    authorities: []
 }
 
 module.exports = config

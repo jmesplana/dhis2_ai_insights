@@ -104,10 +104,46 @@ export const fetchDataForElements = async (engine, dataElements, period, orgUnit
       }
       
       // The analytics endpoint works for all types: data elements, indicators, and program indicators
-      // Handle special organization units
+      // Handle special organization units and multi-org unit breakdown
       let ouDimension;
-      if (orgUnit.isSpecial) {
+      let multiOrgUnitMode = false;
+      let childOrgUnits = [];
+      
+      if (orgUnit.includeChildOrgUnits && !orgUnit.isSpecial) {
+        try {
+          // Fetch child org units for breakdown analysis
+          const childOrgUnitsQuery = {
+            results: {
+              resource: `organisationUnits/${orgUnit.id}`,
+              params: {
+                fields: 'children[id,displayName,path,level,parent[id,displayName],organisationUnitGroups[id,displayName]]'
+              }
+            }
+          };
+          
+          const childResponse = await engine.query(childOrgUnitsQuery);
+          childOrgUnits = childResponse.results.children || [];
+          
+          if (childOrgUnits.length > 0) {
+            // Use child org units for multi-unit breakdown
+            ouDimension = childOrgUnits.map(child => child.id).join(';');
+            multiOrgUnitMode = true;
+            console.log(`Multi-org unit mode: Including ${childOrgUnits.length} child org units`);
+          } else {
+            // No child org units, fall back to single org unit
+            ouDimension = orgUnit.id;
+            console.log('No child org units found, using single org unit mode');
+          }
+        } catch (err) {
+          console.warn('Failed to fetch child org units, falling back to single org unit:', err);
+          ouDimension = orgUnit.id;
+        }
+      } else if (orgUnit.isSpecial) {
         ouDimension = orgUnit.id; // USER_ORGUNIT, USER_ORGUNIT_CHILDREN, or USER_ORGUNIT_GRANDCHILDREN
+        // For special org units, we can enable multi-org mode if it's children or grandchildren
+        if (orgUnit.id === 'USER_ORGUNIT_CHILDREN' || orgUnit.id === 'USER_ORGUNIT_GRANDCHILDREN') {
+          multiOrgUnitMode = true;
+        }
       } else {
         ouDimension = orgUnit.id;
       }
@@ -171,7 +207,10 @@ export const fetchDataForElements = async (engine, dataElements, period, orgUnit
         hasData: hasData,
         dataElements: dataElements,
         dataType: dataType,
-        summary: calculateSummary(headers, rows || [], metaData)
+        multiOrgUnitMode: multiOrgUnitMode,
+        childOrgUnits: childOrgUnits,
+        originalOrgUnit: orgUnit,
+        summary: calculateSummary(headers, rows || [], metaData, multiOrgUnitMode)
       }
       
       return processedData
@@ -420,34 +459,103 @@ export const fetchDataForElements = async (engine, dataElements, period, orgUnit
    * @param {Array} headers - Data headers
    * @param {Array} rows - Data rows
    * @param {Object} metaData - Metadata from response
+   * @param {boolean} multiOrgUnitMode - Whether this is multi-org unit data
    * @returns {Object} Summary statistics
    */
-  const calculateSummary = (headers, rows, metaData) => {
+  const calculateSummary = (headers, rows, metaData, multiOrgUnitMode = false) => {
     if (!rows || rows.length === 0) {
       return {}
     }
     
-    // Find the value column index
+    // Find the column indices
     const valueIndex = headers.findIndex(h => h.name === 'value')
     const deIndex = headers.findIndex(h => h.name === 'dx')
+    const ouIndex = headers.findIndex(h => h.name === 'ou')
+    const peIndex = headers.findIndex(h => h.name === 'pe')
     
     if (valueIndex === -1) {
       return {}
     }
     
-    // Group by data element
+    // Helper function to format period IDs into readable format
+    const formatPeriodId = (periodId) => {
+      if (!periodId || typeof periodId !== 'string') return periodId;
+      
+      // Handle YYYYMM format (e.g., 202406 -> June 2024)
+      if (periodId.match(/^\d{6}$/)) {
+        const year = periodId.substring(0, 4);
+        const month = parseInt(periodId.substring(4, 6));
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+        return `${monthNames[month - 1]} ${year}`;
+      }
+      
+      // Handle YYYYQN format (e.g., 2024Q1 -> Q1 2024)
+      if (periodId.match(/^\d{4}Q\d$/)) {
+        const year = periodId.substring(0, 4);
+        const quarter = periodId.substring(5, 6);
+        return `Q${quarter} ${year}`;
+      }
+      
+      // Handle YYYY format (e.g., 2024 -> Year 2024)
+      if (periodId.match(/^\d{4}$/)) {
+        return `Year ${periodId}`;
+      }
+      
+      return periodId;
+    };
+    
+    // Group by data element, period, and optionally by org unit
     const dataByElement = {}
+    const dataByOrgUnit = {}
+    const dataByPeriod = {}
+    const dataByElementAndPeriod = {}
     
     rows.forEach(row => {
       const deId = row[deIndex]
-      if (!dataByElement[deId]) {
-        dataByElement[deId] = []
-      }
-      
-      // Convert to number
+      const ouId = ouIndex >= 0 ? row[ouIndex] : null
+      const peId = peIndex >= 0 ? row[peIndex] : null
       const value = parseFloat(row[valueIndex])
+      
       if (!isNaN(value)) {
+        // Group by data element
+        if (!dataByElement[deId]) {
+          dataByElement[deId] = []
+        }
         dataByElement[deId].push(value)
+        
+        // Group by period for time series analysis
+        if (peId) {
+          if (!dataByPeriod[peId]) {
+            dataByPeriod[peId] = {}
+          }
+          if (!dataByPeriod[peId][deId]) {
+            dataByPeriod[peId][deId] = []
+          }
+          dataByPeriod[peId][deId].push(value)
+          
+          // Also create combined data element and period grouping
+          const key = `${deId}_${peId}`
+          if (!dataByElementAndPeriod[key]) {
+            dataByElementAndPeriod[key] = {
+              dataElement: deId,
+              period: peId,
+              values: []
+            }
+          }
+          dataByElementAndPeriod[key].values.push(value)
+        }
+        
+        // In multi-org unit mode, also group by org unit
+        if (multiOrgUnitMode && ouId) {
+          if (!dataByOrgUnit[ouId]) {
+            dataByOrgUnit[ouId] = {}
+          }
+          if (!dataByOrgUnit[ouId][deId]) {
+            dataByOrgUnit[ouId][deId] = []
+          }
+          dataByOrgUnit[ouId][deId].push(value)
+        }
       }
     })
     
@@ -487,6 +595,134 @@ export const fetchDataForElements = async (engine, dataElements, period, orgUnit
         sum: sum.toFixed(2)
       }
     })
+    
+    // Add org unit breakdown for multi-org unit mode
+    if (multiOrgUnitMode && Object.keys(dataByOrgUnit).length > 0) {
+      summary.orgUnitBreakdown = {}
+      
+      Object.entries(dataByOrgUnit).forEach(([ouId, orgUnitData]) => {
+        // Get readable org unit name
+        let ouName = ouId;
+        if (metaData && metaData.items && metaData.items[ouId]) {
+          ouName = metaData.items[ouId].name || ouId;
+        }
+        
+        summary.orgUnitBreakdown[ouName] = {}
+        
+        Object.entries(orgUnitData).forEach(([deId, values]) => {
+          if (values.length === 0) return
+          
+          // Get readable data element name
+          let deName = deId;
+          if (metaData && metaData.items && metaData.items[deId]) {
+            deName = metaData.items[deId].name || deId;
+          }
+          
+          const sum = values.reduce((acc, val) => acc + val, 0)
+          const mean = sum / values.length
+          const min = Math.min(...values)
+          const max = Math.max(...values)
+          
+          const sortedValues = [...values].sort((a, b) => a - b)
+          const middle = Math.floor(sortedValues.length / 2)
+          const median = sortedValues.length % 2 === 0
+            ? (sortedValues[middle - 1] + sortedValues[middle]) / 2
+            : sortedValues[middle]
+          
+          summary.orgUnitBreakdown[ouName][deName] = {
+            count: values.length,
+            min,
+            max,
+            mean: mean.toFixed(2),
+            median: median.toFixed(2),
+            sum: sum.toFixed(2)
+          }
+        })
+      })
+    }
+    
+    // Add period breakdown for time series analysis
+    if (Object.keys(dataByPeriod).length > 0) {
+      summary.periodBreakdown = {}
+      
+      Object.entries(dataByPeriod).forEach(([peId, periodData]) => {
+        // Get readable period name
+        let peName = peId;
+        if (metaData && metaData.items && metaData.items[peId]) {
+          peName = metaData.items[peId].name || formatPeriodId(peId);
+        } else {
+          peName = formatPeriodId(peId);
+        }
+        
+        summary.periodBreakdown[peName] = {}
+        
+        Object.entries(periodData).forEach(([deId, values]) => {
+          if (values.length === 0) return
+          
+          // Get readable data element name
+          let deName = deId;
+          if (metaData && metaData.items && metaData.items[deId]) {
+            deName = metaData.items[deId].name || deId;
+          }
+          
+          const sum = values.reduce((acc, val) => acc + val, 0)
+          const mean = sum / values.length
+          const min = Math.min(...values)
+          const max = Math.max(...values)
+          
+          const sortedValues = [...values].sort((a, b) => a - b)
+          const middle = Math.floor(sortedValues.length / 2)
+          const median = sortedValues.length % 2 === 0
+            ? (sortedValues[middle - 1] + sortedValues[middle]) / 2
+            : sortedValues[middle]
+          
+          summary.periodBreakdown[peName][deName] = {
+            count: values.length,
+            min,
+            max,
+            mean: mean.toFixed(2),
+            median: median.toFixed(2),
+            sum: sum.toFixed(2)
+          }
+        })
+      })
+    }
+    
+    // Add a simplified period summary for time series trends
+    if (Object.keys(dataByElementAndPeriod).length > 0) {
+      summary.timeSeriesData = {}
+      
+      // Group by data element first
+      const elementGroups = {}
+      Object.values(dataByElementAndPeriod).forEach(item => {
+        if (!elementGroups[item.dataElement]) {
+          elementGroups[item.dataElement] = []
+        }
+        elementGroups[item.dataElement].push({
+          period: item.period,
+          value: item.values.reduce((acc, val) => acc + val, 0) / item.values.length // average value for the period
+        })
+      })
+      
+      // Sort by period and create time series for each data element
+      Object.entries(elementGroups).forEach(([deId, periodValues]) => {
+        // Get readable data element name
+        let deName = deId;
+        if (metaData && metaData.items && metaData.items[deId]) {
+          deName = metaData.items[deId].name || deId;
+        }
+        
+        // Sort by period ID (assumes YYYYMM format)
+        const sortedPeriods = periodValues.sort((a, b) => a.period.localeCompare(b.period))
+        
+        summary.timeSeriesData[deName] = sortedPeriods.map(item => ({
+          period: metaData && metaData.items && metaData.items[item.period] 
+            ? metaData.items[item.period].name || formatPeriodId(item.period)
+            : formatPeriodId(item.period),
+          value: parseFloat(item.value.toFixed(2))
+        }))
+      })
+    }
     
     return summary
   }

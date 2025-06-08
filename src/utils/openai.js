@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { getApiKeyFromStorage, getSettings, cacheResponse, getCachedResponse } from './storage'
+import { getApiKeyFromStorage, getSettings } from './storage'
 
 /**
  * Send a query to OpenAI API
@@ -7,15 +7,10 @@ import { getApiKeyFromStorage, getSettings, cacheResponse, getCachedResponse } f
  * @param {Object} data - The DHIS2 data to analyze
  * @param {Object} context - Additional context information
  * @param {Array} conversation - The conversation history
+ * @param {Function} onStreamChunk - Optional callback for streaming response chunks
  * @returns {Object} The AI response
  */
-export const sendToOpenAI = async (query, data, context, conversation = []) => {
-  // Check for cached response first
-  const cachedResponse = getCachedResponse(query, data)
-  if (cachedResponse) {
-    return cachedResponse
-  }
-  
+export const sendToOpenAI = async (query, data, context, conversation = [], onStreamChunk = null) => {
   const apiKey = getApiKeyFromStorage()
   if (!apiKey) {
     throw new Error('OpenAI API key not configured')
@@ -35,54 +30,169 @@ export const sendToOpenAI = async (query, data, context, conversation = []) => {
     { role: 'system', content: systemPrompt }
   ]
   
-  // Add conversation history (limited to last 10 messages to save tokens)
-  const recentConversation = conversation.slice(-10)
+  // Add conversation history (limited to last 3 messages to manage tokens)
+  const recentConversation = conversation.slice(-3)
   messages.push(...recentConversation)
   
   // Add the current query
   messages.push({ role: 'user', content: query })
   
   try {
-    const response = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model,
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-        n: 1,
+    // If streaming is requested, use fetch API for SSE
+    if (onStreamChunk) {
+      return await handleStreamingResponse(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+          n: 1,
+          stream: true,
+        },
+        apiKey,
+        onStreamChunk
+      )
+    } else {
+      // Use regular axios for non-streaming requests
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model,
+          messages,
+          max_tokens: maxTokens,
+          temperature,
+          n: 1,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          }
+        }
+      )
+      
+      // Extract the AI's message
+      const aiMessage = response.data.choices[0].message.content
+      
+      // Process for recommendations (optional)
+      const recommendations = extractRecommendations(aiMessage)
+      
+      // Create final response object
+      const result = {
+        message: aiMessage,
+        recommendations: recommendations.length > 0 ? recommendations : null,
+        usage: response.data.usage
+      }
+      
+      return result
+    }
+  } catch (error) {
+    console.error('OpenAI API Error:', error.response?.data || error.message)
+    
+    // Check if it's a token limit error
+    const errorMessage = error.response?.data?.error?.message || error.message
+    if (errorMessage && errorMessage.includes('maximum context length')) {
+      throw new Error(
+        'Too much conversation history. Please click "Clear Chat" to start fresh and try your question again.'
+      )
+    }
+    
+    throw new Error(
+      errorMessage || 
+      'Failed to communicate with OpenAI API. Please check your API key and try again.'
+    )
+  }
+}
+
+/**
+ * Handle streaming response from OpenAI API
+ * @param {string} url - The API endpoint URL
+ * @param {Object} requestBody - The request body
+ * @param {string} apiKey - The API key
+ * @param {Function} onStreamChunk - Callback for streaming chunks
+ * @returns {Object} The complete response
+ */
+const handleStreamingResponse = async (url, requestBody, apiKey, onStreamChunk) => {
+  let fullMessage = ''
+  let usage = null
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
       },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+      body: JSON.stringify(requestBody)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error?.message || 'Failed to communicate with OpenAI API')
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value)
+      const lines = chunk.split('\n')
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6)
+          if (data === '[DONE]') {
+            break
+          }
+          
+          try {
+            const parsed = JSON.parse(data)
+            const delta = parsed.choices[0]?.delta
+            
+            if (delta?.content) {
+              fullMessage += delta.content
+              onStreamChunk(delta.content)
+            }
+            
+            // Capture usage info from the last chunk
+            if (parsed.usage) {
+              usage = parsed.usage
+            }
+          } catch (e) {
+            // Skip invalid JSON lines
+            continue
+          }
         }
       }
-    )
-    
-    // Extract the AI's message
-    const aiMessage = response.data.choices[0].message.content
-    
-    // Process for recommendations (optional)
-    const recommendations = extractRecommendations(aiMessage)
+    }
+
+    // Process for recommendations
+    const recommendations = extractRecommendations(fullMessage)
     
     // Create final response object
     const result = {
-      message: aiMessage,
+      message: fullMessage,
       recommendations: recommendations.length > 0 ? recommendations : null,
-      usage: response.data.usage
+      usage: usage
     }
-    
-    // Cache the response
-    cacheResponse(query, data, result)
     
     return result
   } catch (error) {
-    console.error('OpenAI API Error:', error.response?.data || error.message)
-    throw new Error(
-      error.response?.data?.error?.message || 
-      'Failed to communicate with OpenAI API. Please check your API key and try again.'
-    )
+    console.error('OpenAI Streaming Error:', error)
+    
+    // Check if it's a token limit error
+    const errorMessage = error.message || ''
+    if (errorMessage.includes('maximum context length')) {
+      throw new Error(
+        'Too much conversation history. Please click "Clear Chat" to start fresh and try your question again.'
+      )
+    }
+    
+    throw error
   }
 }
 
@@ -136,8 +246,8 @@ const createSystemPrompt = (data, context) => {
     const hasData = data.hasData || rows.length > 0
     
     if (hasData) {
-      // Create a sample of the data (first 10 rows)
-      const sample = rows.slice(0, 10)
+      // Create a sample of the data (first 5 rows to save tokens)
+      const sample = rows.slice(0, 5)
       
       // Format as a table
       dataString = 'Data Sample:\n'
@@ -149,41 +259,119 @@ const createSystemPrompt = (data, context) => {
         }
         return id;
       };
+
+      // Map period IDs to human-readable names
+      const mapPeriodName = (id) => {
+        if (data.metaData && data.metaData.items && data.metaData.items[id]) {
+          return data.metaData.items[id].name || formatPeriodId(id);
+        }
+        return formatPeriodId(id);
+      };
+
+      // Helper function to format period IDs into readable format
+      const formatPeriodId = (periodId) => {
+        if (!periodId || typeof periodId !== 'string') return periodId;
+        
+        // Handle YYYYMM format (e.g., 202406 -> June 2024)
+        if (periodId.match(/^\d{6}$/)) {
+          const year = periodId.substring(0, 4);
+          const month = parseInt(periodId.substring(4, 6));
+          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                            'July', 'August', 'September', 'October', 'November', 'December'];
+          return `${monthNames[month - 1]} ${year}`;
+        }
+        
+        // Handle YYYYQN format (e.g., 2024Q1 -> Q1 2024)
+        if (periodId.match(/^\d{4}Q\d$/)) {
+          const year = periodId.substring(0, 4);
+          const quarter = periodId.substring(5, 6);
+          return `Q${quarter} ${year}`;
+        }
+        
+        // Handle YYYY format (e.g., 2024 -> Year 2024)
+        if (periodId.match(/^\d{4}$/)) {
+          return `Year ${periodId}`;
+        }
+        
+        return periodId;
+      };
       
-      // Get the dx index (data element) from the headers
+      // Get the dx and pe indices from the headers
       const dxIndex = headers.findIndex(h => h.name === 'dx');
+      const peIndex = headers.findIndex(h => h.name === 'pe');
       
       // Create a header row with readable names
       const headerRow = headers.map((h, i) => {
         if (i === dxIndex && dxIndex !== -1) {
           return 'Data Element';
+        } else if (i === peIndex && peIndex !== -1) {
+          return 'Period';
         }
         return h.column;
       }).join(',');
       
       dataString += headerRow + '\n';
       
-      // Format each row with readable data element names
+      // Format each row with readable data element and period names
       sample.forEach(row => {
         const formattedRow = row.map((cell, i) => {
           if (i === dxIndex && dxIndex !== -1) {
             return mapDataElementName(cell);
+          } else if (i === peIndex && peIndex !== -1) {
+            return mapPeriodName(cell);
           }
           return cell;
         }).join(',');
         dataString += formattedRow + '\n';
       })
       
-      if (rows.length > 10) {
-        dataString += `... (and ${rows.length - 10} more rows)\n`
+      if (rows.length > 5) {
+        dataString += `... (and ${rows.length - 5} more rows)\n`
       }
       
       // Add summary statistics if available
       if (data.summary) {
         dataString += '\nSummary Statistics:\n'
         Object.entries(data.summary).forEach(([key, value]) => {
-          dataString += `${key}: ${value}\n`
+          if (key === 'orgUnitBreakdown') {
+            // Skip org unit breakdown in general summary, handle separately
+            return
+          }
+          dataString += `${key}: ${JSON.stringify(value)}\n`
         })
+        
+        // Add organization unit breakdown if available
+        if (data.summary.orgUnitBreakdown) {
+          dataString += '\nOrganization Unit Breakdown:\n'
+          Object.entries(data.summary.orgUnitBreakdown).forEach(([orgUnit, ouData]) => {
+            dataString += `\n${orgUnit}:\n`
+            Object.entries(ouData).forEach(([dataElement, stats]) => {
+              dataString += `  ${dataElement}: Mean=${stats.mean}, Min=${stats.min}, Max=${stats.max}, Count=${stats.count}\n`
+            })
+          })
+        }
+
+        // Add period breakdown for time series analysis
+        if (data.summary.periodBreakdown) {
+          dataString += '\nPeriod-by-Period Breakdown:\n'
+          Object.entries(data.summary.periodBreakdown).forEach(([period, periodData]) => {
+            dataString += `\n${period}:\n`
+            Object.entries(periodData).forEach(([dataElement, stats]) => {
+              dataString += `  ${dataElement}: Mean=${stats.mean}, Min=${stats.min}, Max=${stats.max}, Count=${stats.count}\n`
+            })
+          })
+        }
+
+        // Add time series data for trend analysis
+        if (data.summary.timeSeriesData) {
+          dataString += '\nTime Series Data (Chronological Order):\n'
+          Object.entries(data.summary.timeSeriesData).forEach(([dataElement, timeSeries]) => {
+            dataString += `\n${dataElement} over time:\n`
+            timeSeries.forEach(point => {
+              dataString += `  ${point.period}: ${point.value}\n`
+            })
+          })
+        }
       }
     } else {
       dataString = 'No data available for the selected data elements in the specified period and location.\n\n' +
@@ -211,6 +399,14 @@ IMPORTANT: Never display technical identifiers (UIDs like "UsSUX0cpKsH") in your
 - Data Elements: ${Array.isArray(context.dataElements) ? context.dataElements.join(', ') : 'None selected'}
 - Period: ${context.period}
 - Organization Unit: ${context.orgUnit.displayName || context.orgUnit.name || "Selected organization unit"}
+${context.orgUnit.level ? `- Organization Unit Level: ${context.orgUnit.level}` : ''}
+${context.orgUnit.path ? `- Organization Unit Hierarchy: ${context.orgUnit.path.split('/').slice(1).join(' > ')}` : ''}
+${context.multiOrgUnitMode ? `
+- **MULTI-ORGANIZATION UNIT ANALYSIS ENABLED**
+- Analysis Type: Comparative analysis across ${context.childOrgUnits.length} child organization units
+- Child Organization Units: ${context.childOrgUnits.map(ou => ou.displayName || ou.name).join(', ')}
+${context.childOrgUnits.length > 0 && context.childOrgUnits[0].level ? `- Child Org Unit Level: ${context.childOrgUnits[0].level}` : ''}
+- Focus: Individual organization unit performance comparison and ranking` : ''}
 
 ## Your Task:
 - Analyze the provided health data carefully and objectively
@@ -227,7 +423,12 @@ When formulating your response:
 1. First analyze the data briefly to understand what it represents
 2. If there is data available:
    - Provide key observations and trends in the data
+   - **TIME SERIES ANALYSIS**: Look at the "Time Series Data" and "Period-by-Period Breakdown" sections to identify trends over time, seasonal patterns, peaks, and declines
+   - **PERIOD COMPARISON**: When asked about which month/period has highest/lowest values, refer to the period breakdowns and time series data
    - Highlight any notable patterns, anomalies, or concerning indicators
+   ${context.multiOrgUnitMode ? `   - **FOR MULTI-ORG UNIT ANALYSIS**: Compare performance across organization units, identify best and worst performers, highlight disparities and outliers
+   - **RANKING AND COMPARISON**: When asked, provide clear rankings and identify specific organization units that need attention
+   - **GEOGRAPHIC INSIGHTS**: Consider geographic or administrative factors that might explain differences between organization units` : ''}
    - Conclude with 2-5 specific, actionable recommendations
 3. If there is NO data available:
    - Acknowledge the lack of data without being repetitive
@@ -245,6 +446,7 @@ Remember:
 4. ALWAYS use the organization unit's display name (${context.orgUnit.displayName || context.orgUnit.name || "organization unit"}) in your responses, not the ID
 `
 }
+
 
 /**
  * Extract recommendations from AI message

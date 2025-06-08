@@ -44,7 +44,6 @@ export const SettingsPanel = ({ onClose, engine }) => {
   const [temperature, setTemperature] = useState(0.7)
   const [model, setModel] = useState('gpt-4')
   const [cachingEnabled, setCachingEnabled] = useState(true)
-  const [allowUserTracking, setAllowUserTracking] = useState(false)
 
   useEffect(() => {
     // Load API key from storage
@@ -58,7 +57,6 @@ export const SettingsPanel = ({ onClose, engine }) => {
       setTemperature(settings.temperature || 0.7)
       setModel(settings.model || 'gpt-4')
       setCachingEnabled(settings.cachingEnabled !== false)
-      setAllowUserTracking(settings.allowUserTracking || false)
       
       // Load AI provider settings
       setAIProvider(settings.aiProvider || 'openai')
@@ -140,7 +138,6 @@ export const SettingsPanel = ({ onClose, engine }) => {
     const settings = {
       maxTokens,
       cachingEnabled,
-      allowUserTracking,
       aiProvider
     }
     
@@ -362,15 +359,6 @@ export const SettingsPanel = ({ onClose, engine }) => {
                   checked={cachingEnabled}
                   onChange={() => setCachingEnabled(!cachingEnabled)}
                   helpText="Cache AI responses to save API costs for identical queries."
-                />
-              </div>
-              
-              <div className="settings-field">
-                <Switch
-                  label="Allow anonymous usage tracking"
-                  checked={allowUserTracking}
-                  onChange={() => setAllowUserTracking(!allowUserTracking)}
-                  helpText="Help improve the app by sending anonymous usage data."
                 />
               </div>
             </>

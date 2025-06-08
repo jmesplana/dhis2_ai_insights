@@ -8,18 +8,19 @@ import { getSettings } from './storage'
  * @param {Object} data - The DHIS2 data to analyze
  * @param {Object} context - Additional context information
  * @param {Array} conversation - The conversation history
+ * @param {Function} onStreamChunk - Optional callback for streaming response chunks
  * @returns {Object} The AI response
  */
-export const sendToAI = async (query, data, context, conversation = []) => {
+export const sendToAI = async (query, data, context, conversation = [], onStreamChunk = null) => {
   const settings = getSettings() || {}
   const aiProvider = settings.aiProvider || 'openai'
   
   // Based on the configured provider, send to appropriate service
   if (aiProvider === 'ollama') {
-    return sendToOllama(query, data, context, conversation)
+    return sendToOllama(query, data, context, conversation, onStreamChunk)
   } else {
     // Default to OpenAI
-    return sendToOpenAI(query, data, context, conversation)
+    return sendToOpenAI(query, data, context, conversation, onStreamChunk)
   }
 }
 

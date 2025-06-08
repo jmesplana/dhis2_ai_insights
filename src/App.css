@@ -9,7 +9,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
   }
   
   .welcome-card {
@@ -32,31 +32,29 @@
     flex-direction: column;
     gap: 16px;
     margin-top: 16px;
-    height: 100%;
-    max-height: none; /* Remove max-height constraint */
-    overflow: visible; /* Allow content to expand */
+    height: calc(100vh - 120px); /* Take full viewport height minus header */
+    max-height: none;
+    overflow-y: auto; /* Allow scrolling for the entire container */
   }
   
   /* WhatsApp-style chat container */
   .chat-container {
     display: flex;
     flex-direction: column;
-    height: 700px; /* Default height */
-    min-height: 300px; /* Reduced minimum height */
-    max-height: none; /* Remove max-height constraint */
-    border: 1px solid #e0e0e0;
+    flex: 1; /* Take available space */
+    min-height: 400px;
+    max-height: none;
+    border: 1px solid #E8EDF2;
     border-radius: 8px;
-    background-color: #f0f0f0;
-    overflow: visible; /* Allow content to expand */
-    margin-bottom: 16px;
+    background-color: #F8F9FA;
+    overflow: hidden;
     position: relative;
-    resize: vertical; /* Allow vertical resizing of the entire container */
   }
   
   .chat-header {
-    background-color: #075E54;
+    background-color: #2196f3;
     color: white;
-    padding: 12px 16px;
+    padding: 16px;
     font-weight: bold;
     display: flex;
     justify-content: space-between;
@@ -70,28 +68,27 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
-    background-color: #e5ddd5;
-    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAZUSURBVEhLbZVbbBRVGMf/Z2Z2drfdpd1u2+0l0BYo0BYoLQWhgFAMRjHGWyIm+mIiDyT6og8+mRiMiS/6QIwPJiZeotEHibcgoiAWuRTKrdfdbrvdbbvb3e3O7MzO8TvTKgQ9yclkzpz5/7/vdr5Buc6da+TQvYfk9nNPlPe/v1LxRKIByeI3h2S92eqY0HJxWe+8SHMtR3ub5t7o5NKFxx5vGhh4R2qpQEZ7uvLJM7kCt2xB3puQ5dF5Wd2dEVHNK+OdRqsrtEfWnCYXJFVMQwW4a1BKlYoFnGj1Z/DX9xgmFmBz6vJkc3j4ckfPAxQwNZVUo/Gj4pOpcF+mb69vl5blw+2vCbMhJHpfVZW9xyQ9dJRPqytc4N0U/PYJKGWDWAvITX6Kq5+MiJtvnrLu3Bm73NJyYmdHx90eNV8ygvnILrvEXtJSHZLZ1CmrjXsls/mwpDW0y7LGXVx1yPygQ3LbDkpm4ITkN/TKfG9AFoejsjiSk4XRrMwVRqUiOnKlvj4klfYXrGwjP9Hri3fY2fTbvFzM8eKWZrXQZJDkZgNJTc0g0eJFY6sb8VY3Ghvd8Po98Hg98Phc8ATc8ATc8Po98FU6sbIyj0gsgWypCJZJI/7HL6j7dQTfnT2baW9v/6p98OB7jJfsXxYGTl/PqQ0+R1mjSWXpZk2mJIKkgSVtGNk0wotpLM5nMDeWwOzfcUz/Hcf0aAKJCI9XUjX7/qyI02+9OtHV1XU01NPzOmMPmkZhZKYQrP9Lc4ULKhGZYkoJUAovVKjh8VXCXRtEY0cDOnY1Y//DbRh8qRNHX+3CocM7UKW7QKpyHxiPfgYnx8eft0OhVxm/auVqwhx5eUNNGXYhVYRl2HAyHNIr4bAYpQY7z2CUCxwlGl+f4FyfYJQpuYMUZGxZKmJ6Zh6tDUGoduFDDXa5V0+MnNs3Ox/b5fC44A374S8E4At5obrcKOVKMAplpGJZTN2MYW46jkKqhDIVQmF2jIIoQ5VIJJqmIZsoIp5MQ6E/Fjl8pXZ2v9VdU2dIEVvUohCpiNIVhRRRR6ykxcjIjGIWZLgU0NLQDt9KA2q/A1ptBdweDaxFTM4toq62Gnn7rJdLIg/Xt5v6nGtEFEEQSo5Dl+QFV6uMTEqjU5KYnCijuJBE1fRNhBuakZu+jVrHRGpsBsp8Hi6nAlspwjL36bA7HRvDfqcGdXW1q2iK/XscSnmBNJ0wC+cVtQI2haAGE+tG5e1Z7NjXxWImTWK/RjYXGfVldBNjv1+H8KQbjFpOtLTUeKUFHsGMbdJR09CgWiTVY9KYMxVoZTp2JQBVtyORZV6L1VDpBCJ0VoxRaMzl4Cn74H+rDLuvoZKJFg4HfeSzXa8wwtlyMUNvBgwS2LSJhfuRxTzzblOJ/FpkM1S4LfwGjaG5QJUHoXALApW1KFXVIbu7BdGbSygmh0U4FNyggP8hHrxoWzaXpBvKMHjYziSRLRUwtTSBOF1jswhoXiviLF6bRBNzUaQLeZTpoYgSxdm/MGzl23OzVFXHvcE/3TDqQ8VmNbNSK3hs9Uc0dE+ZkRuIxvNY/5GBIqNRxUvXzCRRimQw9vsQsyFvLNRXmY6t8wRokmvXvh4e/nL61p3r9Dz8IKNsLTbVY5SuoTRmSVPPIzubwrqVMXYgx2jIb5QYhbAwd3MTuWQKyczkj01Nwb+6e3vX2HbsSO8nnx05enTDkUdbazeXl9QihTCvoRsIVdexKxu5pxblfB7hx7ogWNGK7HqF6hJT0zHce+/0SHdP1+GWtrbH74Vv0vvmW2fe3vvMC2+GwttaFXed6mnaCluvo1OqUbY4GYW6AJSaICybm2J5AsvrN7HM4L4bfj4y2NPz6K6hoSel1JDu8ZVz1x8888HxVxo3bXiJmwq+LJeJnGVD5X80dtbkzrBFyjWcFxnr4sUrY78MDx9r393/Vluof8g/MpJf/bBLrbSqrmRE+fHipfGPhz88YY797tCbrImkEGalQnBFUQlZEcnShZX56s0rwuY+XZ6ZvP/Dh9t2XbsGgTvivwFl4+XCeZQHWQAAAABJRU5ErkJggg==");
-    min-height: 300px; /* Increased minimum height */
-    height: 450px; /* Default height */
-    max-height: 90vh; /* Maximum height */
-    border-bottom: 1px solid #e0e0e0;
+    background-color: #FBFCFD;
+    min-height: 300px;
+    height: 450px;
+    max-height: 90vh;
+    border-bottom: 1px solid #E8EDF2;
     overflow-y: auto;
   }
   
   /* The resizable area with a simpler, more direct approach */
   .resizable-chat-area {
     position: relative;
-    height: 400px; /* Default height */
-    min-height: 150px; /* Reduced minimum height */
-    max-height: none; /* Remove maximum height constraint */
-    background-color: #e5ddd5;
+    height: 400px;
+    min-height: 150px;
+    max-height: none;
+    background-color: #FBFCFD;
     display: flex;
     flex-direction: column;
-    resize: vertical; /* Allow vertical resizing */
-    overflow: visible; /* Allow content to be visible */
-    border-bottom: 1px solid #e0e0e0;
-    flex: 1; /* Allow this area to grow and shrink */
+    resize: vertical;
+    overflow: visible;
+    border-bottom: 1px solid #E8EDF2;
+    flex: 1;
   }
   
   .chat-messages {
@@ -103,13 +100,12 @@
     gap: 16px;
     height: 100%;
     box-sizing: border-box;
-    background-image: url("data:image/png;base64,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");
   }
   
   /* Resize handle styling */
   .resize-handle {
-    height: 10px;
-    background-color: #dcdcdc;
+    height: 8px;
+    background-color: #F3F5F7;
     cursor: ns-resize;
     position: relative;
     display: flex;
@@ -121,22 +117,23 @@
     content: "";
     width: 40px;
     height: 4px;
-    background-color: #999;
+    background-color: #A0ADBA;
     border-radius: 2px;
   }
   
   .chat-input-area {
-    background-color: #f0f0f0;
-    border-top: 1px solid #e0e0e0;
+    background-color: #F8F9FA;
+    border-top: 1px solid #E8EDF2;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex-shrink: 0;
   }
   
   .message-bubble {
     max-width: 75%;
-    padding: 12px;
+    padding: 16px;
     border-radius: 8px;
     position: relative;
     word-wrap: break-word;
@@ -144,20 +141,22 @@
   
   .message-user {
     align-self: flex-end;
-    background-color: #DCF8C6;
+    background-color: #e3f2fd;
     border-radius: 8px 0 8px 8px;
+    border: 1px solid #c5e3fc;
   }
   
   .message-ai {
     align-self: flex-start;
     background-color: #FFFFFF;
     border-radius: 0 8px 8px 8px;
+    border: 1px solid #E8EDF2;
   }
   
   .message-timestamp {
     font-size: 11px;
-    color: #999;
-    margin-top: 4px;
+    color: #A0ADBA;
+    margin-top: 8px;
     text-align: right;
   }
   
@@ -231,8 +230,29 @@
   }
   
   .ai-message {
-    white-space: pre-wrap;
-    line-height: 1.5;
+    white-space: normal;
+    line-height: 1.4;
+  }
+  
+  /* Reduce spacing for markdown elements in AI messages */
+  .ai-message p {
+    margin-bottom: 8px !important;
+    margin-top: 0 !important;
+  }
+  
+  .ai-message h1, .ai-message h2, .ai-message h3, .ai-message h4 {
+    margin-bottom: 8px !important;
+    margin-top: 12px !important;
+  }
+  
+  .ai-message ul, .ai-message ol {
+    margin-bottom: 8px !important;
+    margin-top: 0 !important;
+    padding-left: 16px !important;
+  }
+  
+  .ai-message li {
+    margin-bottom: 2px !important;
   }
   
   .ai-message-container {
@@ -292,6 +312,52 @@
   
   .suggested-prompt:hover {
     background-color: #e0e0e0;
+  }
+
+  /* New suggested prompts container - separate from chat */
+  .suggested-prompts-container {
+    flex-shrink: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    margin-bottom: 16px; /* Add bottom margin for better spacing */
+  }
+
+  .suggested-prompts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .suggested-prompt-compact {
+    padding: 8px 12px;
+    background-color: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    line-height: 1.3;
+  }
+
+  .suggested-prompt-compact:hover {
+    background-color: #e8f4f8;
+    border-color: #1976d2;
+    transform: translateY(-1px);
+  }
+
+  .suggested-prompt-compact.multi-org {
+    background-color: #f8fbff;
+    border-color: #e3f2fd;
+  }
+
+  .suggested-prompt-compact.multi-org:hover {
+    background-color: #e3f2fd;
+    border-color: #1976d2;
   }
   
   .visualization-container {
